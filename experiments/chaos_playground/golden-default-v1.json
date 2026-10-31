@@ -1,0 +1,49 @@
+{
+  "fixture_version": "fram-chaos-browser-golden/v1",
+  "source": {
+    "file": "chaos-playground-v2.html",
+    "sha256": "227C350BFC930ACC17FFD3309D5AFB5F9EA1EA0876DEE82497746B33B0EF44B5"
+  },
+  "logistic": {
+    "r": 3.9,
+    "x0": 0.4,
+    "burn_in": 200,
+    "steps": 900,
+    "backend": {
+      "lyapunov": 0.5106591927493627,
+      "last": 0.43675858948519813,
+      "period": null
+    },
+    "browser_display": {
+      "lyapunov": 0.51066,
+      "last": 0.436759,
+      "period": "infinity",
+      "delta": 4.671871
+    }
+  },
+  "browser_cascade": [
+    {"period": 2, "onset": 3.0000757, "ratio": null},
+    {"period": 4, "onset": 3.4495207, "ratio": 4.751846},
+    {"period": 8, "onset": 3.5441040, "ratio": 4.657165},
+    {"period": 16, "onset": 3.5644132, "ratio": 4.670512},
+    {"period": 32, "onset": 3.5687616, "ratio": 4.671871},
+    {"period": 64, "onset": 3.5696923, "ratio": null}
+  ],
+  "browser_evidence": {
+    "engine": "Microsoft Edge 150 via Playwright",
+    "document_hidden": false,
+    "console_errors": [],
+    "controls": 18,
+    "canvas_quantized_colors": {
+      "helix": 124,
+      "bif": 34,
+      "mandel": 50,
+      "julia": 119
+    },
+    "scene_memory_cycle": {
+      "save": [1, 0],
+      "shelve": [0, 1],
+      "restore": [1, 0]
+    }
+  }
+}

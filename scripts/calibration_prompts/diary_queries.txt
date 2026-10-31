@@ -1,0 +1,10 @@
+What were the main takeaways in yesterday's FRAM engineering diary?
+Summarize the blockers noted in the FRAM daily diary.
+How did the diary describe calibration progress for OrthoRoute confidence?
+What follow-up actions were captured in the FRAM diary for today?
+Detail the calibration work logged on 2025-09-29 in the engineering diary.
+How does the diary explain the new /metrics reliability breakdown?
+Which scripts does the diary insist we run before the next confidence refresh?
+Summarize the diary's notes on expanding calibration prompts for diary runs.
+What diary guidance do we have for monitoring domain-specific tau stability?
+List the observability updates captured in the diary alongside calibration changes?

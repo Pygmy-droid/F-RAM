@@ -1,0 +1,10 @@
+# Sample calibration prompts covering layout, coverage, and routing edge cases
+
+How does FRAM detect columnar layout when assembling table snippets?
+Which steps widen to anchors in OrthoRoute+ and what triggers that decision?
+Summarize how claim coverage handles independence buckets across docs and layout blocks.
+Describe how roadmap domain overrides adjust query reads and thresholds.
+Explain the conformal fallback path when confidence stays below tau2.
+Walk through how working-memory entries join the shortlist alongside persisted shards.
+How is prototype whitening maintained after ingest updates and what signals flag stale stats?
+When should the orchestrator switch from local anchors to the global shortlist in long-horizon queries?

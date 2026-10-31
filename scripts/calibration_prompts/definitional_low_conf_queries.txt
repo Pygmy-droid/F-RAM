@@ -1,0 +1,6 @@
+# Ambiguous/low-confidence prompts to stretch definitional calibration
+What is the FRAM roadmap timeline if budgets slip?
+Does CELF always guarantee optimal coverage?
+List every FRAM feature that failed tests recently.
+Which FRAM components are probably still experimental?
+What might go wrong if calibration payloads are stale?

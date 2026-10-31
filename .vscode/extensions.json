@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "openai.chatgpt",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-toolsai.jupyter",
+    "charliermarsh.ruff",
+    "ms-python.black-formatter",
+    "redhat.vscode-yaml",
+    "yzhang.markdown-all-in-one",
+    "eamodio.gitlens"
+  ]
+}

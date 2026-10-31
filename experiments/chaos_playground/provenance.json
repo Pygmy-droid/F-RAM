@@ -1,0 +1,14 @@
+{
+  "artifact": "Chaos Playground v2",
+  "artifact_url": "https://claude.ai/code/artifact/c3fcff45-8e5d-432d-9216-2306614a931b",
+  "authored_by": "Claude Opus 5",
+  "preserved_at": "2026-07-27",
+  "source": {
+    "bytes": 64584,
+    "lines": 1614,
+    "sha256": "227C350BFC930ACC17FFD3309D5AFB5F9EA1EA0876DEE82497746B33B0EF44B5",
+    "scratchpad_path": "C:\\Users\\Rick\\AppData\\Local\\Temp\\claude\\C--Games-FRAM-V22-Starter-fram-v22-starter\\862c7f7e-bebe-42ff-9252-5d238e089580\\scratchpad\\chaos-playground-v2.html"
+  },
+  "classification": "interactive reconstruction",
+  "historical_identity_claimed": false
+}

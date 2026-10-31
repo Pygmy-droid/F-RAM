@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>FRAM Observability Dashboard</title>
+  <style>
+    body { font-family: "Segoe UI", Arial, sans-serif; margin: 16px; }
+    pre { background: #f5f5f5; padding: 8px; }
+    h3 { margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <h2>FRAM Observability Dashboard</h2>
+  <div id="content"></div>
+  <script>
+    async function fetchJson(url) {
+      const resp = await fetch(url);
+      return await resp.json();
+    }
+    async function load() {
+      const storage = await fetchJson('/observability/storage');
+      const calibration = await fetchJson('/observability/calibration');
+      const phaseD = await fetch('/observability/phase_d_memory').then(r => r.json()).catch(() => ({}));
+      const summary = await fetchJson('/observability/summary');
+      const asof = await fetchJson('/observability/as_of');
+      const ann = (phaseD && phaseD.phase_d_memory) || {};
+      document.getElementById('content').innerHTML = `
+        <h3>Storage</h3><pre>${JSON.stringify(storage, null, 2)}</pre>
+        <h3>Calibration</h3><pre>${JSON.stringify(calibration, null, 2)}</pre>
+        <h3>As-of Filters</h3><pre>${JSON.stringify(asof, null, 2)}</pre>
+        <h3>Phase D Memory / ANN Bridge</h3><pre>${JSON.stringify(ann, null, 2)}</pre>
+        <h3>Summary</h3><pre>${JSON.stringify(summary, null, 2)}</pre>
+      `;
+    }
+    load();
+  </script>
+</body>
+</html>

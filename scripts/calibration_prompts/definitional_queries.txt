@@ -1,0 +1,6 @@
+# Short definitional prompts used to anchor calibration around high-confidence facts
+What is FRAM?
+What did I work on today?
+What are the next milestones?
+How does CELF work?
+Which features are done?

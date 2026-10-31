@@ -1,0 +1,16 @@
+# Moderate-confidence QA prompts to diversify calibration samples
+Summarize the FRAM calibration workflow in two sentences.
+How does FRAM decide between anchors and global fallback?
+Which FRAM components still need implementation work?
+What safeguards keep FRAM calibration from drifting?
+Explain FRAM's CELF coverage objective.
+Which metrics should we watch after a calibration refit?
+How does FRAM log calibration samples?
+When should FRAM widen the shortlist during QA?
+What are the risks if FRAM skips calibration linting?
+Describe the steps to harvest new calibration data.
+Why might FRAM fall back to global even with a strong shortlist?
+How does FRAM balance latency budgets against coverage gains?
+What inputs does the calibration sanity script verify?
+Which doc sources anchor FRAM's highest-confidence answers?
+When should QA reviewers trigger a fresh calibration refit?

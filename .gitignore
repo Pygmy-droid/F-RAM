@@ -1,0 +1,41 @@
+﻿.venv/
+.runtime/
+env/
+__pycache__/
+*.pyc
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+logs/
+diag/
+data/
+.cache/
+node_modules/
+dist/
+build/
+*.zip
+*.tar*
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime artifacts
+/storage/
+*.npy
+*.jsonl
+
+# Local drive exports
+artifacts/drive/*
+!artifacts/drive/README.md
+
+# Local capsule falsification runs
+artifacts/observability/capsule_falsify_*.json
+
+# The Workbook event chain is the source of truth and must be versioned (Wren, 2026-10-29).
+!workbook/
+!workbook/EVENTS.jsonl
+# Derived from source by tools/codebase_graph.py; the map embeds it and PIPELINES.md is the readable copy.
+experiments/cosmic_cathedral/codebase-graph.json

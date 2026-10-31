@@ -1,0 +1,115 @@
+{
+  "schema_version": "fram-chaos-dimensional-ladder/v1",
+  "base_artifact": {
+    "file": "chaos-playground-v3.html",
+    "bytes": 77933,
+    "sha256": "C36300FFFB6CD31A910765E47FE221B92B2B386ACB080456938EE303EDAEB333",
+    "role": "preserved origin-completion baseline"
+  },
+  "derivative": {
+    "file": "chaos-playground-v4.html",
+    "bytes": 82939,
+    "lines": 2030,
+    "sha256": "2C09E941028C277BEBB5869691DECFF2BD9DA6EBBBFE4FBF2E2BD465F9B84F26",
+    "classification": "interactive reconstruction",
+    "historical_identity_claimed": false
+  },
+  "range": {
+    "minimum": -1,
+    "maximum": 8,
+    "default": 4
+  },
+  "origin_completion": {
+    "uses_whole_shape": true,
+    "zoom_fraction": 0.6,
+    "completion_fraction": 0.4,
+    "rotation_degrees": 180,
+    "confidence_semantics": false,
+    "row_selection_semantics": false,
+    "operation_order": [
+      "build one canonical eight-coordinate carrier",
+      "apply the signed carrier-space turn",
+      "split every coordinate radially into zoom and origin completion",
+      "project the completed carrier into screen and auxiliary channels"
+    ]
+  },
+  "stages": [
+    {
+      "dimension": -1,
+      "key": "latent",
+      "status": "RECONSTRUCTION",
+      "mathematical_boundary": "non-geometric sentinel; not ordinary Euclidean R^-1",
+      "channel": "empty field"
+    },
+    {
+      "dimension": 0,
+      "key": "origin",
+      "status": "FACT",
+      "mathematical_boundary": "R^0 is the singleton origin",
+      "channel": "origin glyph"
+    },
+    {
+      "dimension": 1,
+      "key": "line",
+      "status": "FACT",
+      "mathematical_boundary": "R^1; a visible turn uses a declared 2D carrier plane",
+      "channel": "x position"
+    },
+    {
+      "dimension": 2,
+      "key": "plane",
+      "status": "FACT",
+      "mathematical_boundary": "R^2",
+      "channel": "xy position"
+    },
+    {
+      "dimension": 3,
+      "key": "space",
+      "status": "FACT",
+      "mathematical_boundary": "R^3 ambient trajectory",
+      "channel": "xyz position"
+    },
+    {
+      "dimension": 4,
+      "key": "phase",
+      "status": "RECONSTRUCTION",
+      "mathematical_boundary": "R^4 with centered sample phase c4",
+      "channel": "cyclic hue"
+    },
+    {
+      "dimension": 5,
+      "key": "rhythm",
+      "status": "RECONSTRUCTION",
+      "mathematical_boundary": "R^5 with normalized local speed c5",
+      "channel": "pulse and point radius"
+    },
+    {
+      "dimension": 6,
+      "key": "trace",
+      "status": "RECONSTRUCTION",
+      "mathematical_boundary": "R^6 with exponential speed trace c6",
+      "channel": "trail memory"
+    },
+    {
+      "dimension": 7,
+      "key": "braid",
+      "status": "RECONSTRUCTION",
+      "mathematical_boundary": "R^7 with signed half-turn path witness c7",
+      "channel": "clockwise/counterclockwise braid"
+    },
+    {
+      "dimension": 8,
+      "key": "atlas",
+      "status": "RECONSTRUCTION",
+      "mathematical_boundary": "R^8 with local bending witness c8",
+      "channel": "linked shadow projections"
+    }
+  ],
+  "non_claims": [
+    "The ladder is not an established model of physical dimensions.",
+    "Higher coordinates are not confidence scores.",
+    "Color, dropped coordinates, and turn sense are not automatically Hopf fiber phase.",
+    "Aizawa remains an ambient R3 flow unless a separate construction is declared.",
+    "Eight is the declared ceiling of this experiment, not a theorem that all F-RAM models must stop there."
+  ]
+}

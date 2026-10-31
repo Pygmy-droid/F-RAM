@@ -1,0 +1,89 @@
+[tool.poetry]
+name = "fram-v22"
+version = "22.1.0"
+description = "F-RAM v2.2 starter (Fractal RAG Memory & OrthoRoute+)"
+authors = ["You <you@example.com>"]
+readme = "README.md"
+packages = [
+  { include = "fram_core" },
+  { include = "fram_layout" },
+  { include = "fram_index" },
+  { include = "fram_serving" },
+  { include = "fram_eval" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+fastapi = "^0.111"
+mcp = {extras = ["cli"], version = "^1.14"}
+uvicorn = {extras = ["standard"], version = ">=0.31,<0.36"}
+pydantic = "^2.7"
+numpy = "^1.26"
+scikit-learn = "1.7.2"
+joblib = ">=1.4"
+httpx = "^0.27"
+orjson = "^3.10"
+
+# Optional dependencies (used by extras like "full"). These are not installed by default.
+faiss-cpu = {version = "*", optional = true}
+scipy = {version = "*", optional = true}
+datasketch = {version = "*", optional = true}
+networkx = {version = "*", optional = true}
+rich = {version = "*", optional = true}
+pdfplumber = {version = "*", optional = true}
+pillow = {version = ">=10", optional = true}
+transformers = {version = ">=4.45,<5", optional = true}
+torch = {version = ">=2.2", optional = true}
+huggingface-hub = {version = ">=0.25", optional = true}
+# Install camelot with its cv extra when the "full" extra is requested
+camelot-py = {version = "*", extras = ["cv"], optional = true}
+pandas = {version = "*", optional = true}
+python-dateutil = {version = "*", optional = true}
+rapidfuzz = {version = "*", optional = true}
+treelib = {version = "*", optional = true}
+tree-sitter = {version = "*", optional = true}
+python-Levenshtein = {version = "*", optional = true}
+sentence-transformers = {version = "*", optional = true}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2"
+pytest-asyncio = "^0.25"
+black = "^24.4"
+ruff = "^0.6"
+mypy = "^1.10"
+pre-commit = "^3.8"
+
+[tool.poetry.extras]
+full = [
+  "faiss-cpu",
+  "scipy",
+  "datasketch",
+  "networkx",
+  "rich",
+  "pdfplumber",
+  "pillow",
+  "camelot-py",
+  "pandas",
+  "python-dateutil",
+  "rapidfuzz",
+  "treelib",
+  "tree-sitter",
+  "python-Levenshtein",
+  "sentence-transformers",
+]
+
+visual = ["pillow"]
+visual-seed = ["pillow", "transformers", "torch", "huggingface-hub"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.poetry.scripts]
+fram-ingest = "fram_serving.ingest:main"
+fram-index-visuals = "fram_serving.visual_ingest:main"
+fram-visual-contact-sheets = "fram_serving.visual_contact_sheet:main"
+

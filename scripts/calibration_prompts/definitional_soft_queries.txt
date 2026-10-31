@@ -1,0 +1,6 @@
+# Softer definitional prompts that should not always score near certainty
+What is the FRAM roadmap budget?
+Summarize CELF penalties in one sentence.
+Which FRAM modules are still incomplete?
+When should FRAM widen to the global shortlist?
+What are the risks of the current calibration payload?

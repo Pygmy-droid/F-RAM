@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Phase D Priority Inspector</title>
+  <style>
+    body { font-family: "Segoe UI", Arial, sans-serif; margin: 16px; }
+    table { border-collapse: collapse; width: 100%; font-family: "Consolas", "Courier New", monospace; }
+    th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+    tr:nth-child(even) { background: #f7f7f7; }
+    h2 { margin-bottom: 4px; }
+    .section { margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <h2>Phase D Priority Inspector</h2>
+  <div class="section">
+    <strong>Config:</strong>
+    <pre>{{config}}</pre>
+  </div>
+  <div class="section">
+    <strong>Priority Snapshot</strong>
+    <table>
+      <tr>
+        <th>id</th><th>phase_d_priority</th><th>graph_priority</th><th>final_priority</th><th>temporal_factor</th><th>hysteresis_boost</th><th>previous_priority</th><th>prev_selected</th>
+      </tr>
+      {{rows}}
+    </table>
+  </div>
+  {{retention_section}}
+  {{decay_section}}
+  {{forgetting_section}}
+  <div class="section">
+    <strong>Recent Events</strong>
+    <table>
+      <tr><th>time</th><th>query_id</th><th>scored</th></tr>
+      {{events}}
+    </table>
+  </div>
+</body>
+</html>

@@ -1,0 +1,167 @@
+﻿{
+  "id": "83a4d63b5c394795ac5823730e827088",
+  "time": "2025-10-03T09:07:20.012620+00:00",
+  "query": "How does FRAM calibrate confidence?",
+  "domain": "general",
+  "task": "qa",
+  "citations": [
+    "docs_ingest_f_ram_roadmap.txt:chunk1",
+    "docs_ingest_framv2_2_spec.txt:chunk8",
+    "docs_ingest_framv2_2_cheatsheet.txt:chunk0"
+  ],
+  "trace": {
+    "as_of": null,
+    "budget_reads": 3.0,
+    "domain": "general",
+    "task": "qa",
+    "query_id": "83a4d63b5c394795ac5823730e827088",
+    "trace_id": "83a4d63b5c394795ac5823730e827088",
+    "p_temp": 0.0,
+    "latency_ms": {
+      "vectorize_ms": 1.088,
+      "selection_ms": 14.106
+    },
+    "scores": [
+      {
+        "file": "docs_ingest_architecture.txt",
+        "chunk_id": 0,
+        "score": 0.000451,
+        "timestamp": "2025-10-02T12:33:29.029509+00:00"
+      },
+      {
+        "file": "docs_ingest_architecture.txt",
+        "chunk_id": 1,
+        "score": 0.000326,
+        "timestamp": "2025-10-02T12:33:29.029509+00:00"
+      },
+      {
+        "file": "docs_ingest_codex_diary.txt",
+        "chunk_id": 0,
+        "score": -0.00049,
+        "timestamp": "2025-10-02T12:33:29.030953+00:00"
+      },
+      {
+        "file": "docs_ingest_codex_diary.txt",
+        "chunk_id": 1,
+        "score": -0.000552,
+        "timestamp": "2025-10-02T12:33:29.030953+00:00"
+      }
+    ],
+    "confidence": {
+      "decision": "global",
+      "calibration": {
+        "source": "global",
+        "tau1": 0.8,
+        "tau2": 0.5,
+        "temperature": 0.725338
+      },
+      "features": {
+        "Delta_d_z": 163.002,
+        "rho_pos": -0.043985,
+        "mhd": 0.50263,
+        "d_c_z": 667633.662,
+        "fresh": 0.0
+      },
+      "projection": {
+        "cos": 0.030176,
+        "norm": 1.0
+      },
+      "projection_error": 1.393
+    },
+    "selection": {
+      "anchors": [
+        {
+          "id": 7,
+          "Δ": 15.6,
+          "reads": 1.0,
+          "tokens": 250.0,
+          "pairs": 1.0,
+          "seed": true,
+          "ratio": 10.065
+        }
+      ],
+      "shards": [
+        {
+          "id": 21,
+          "Δ": 16.72,
+          "reads": 1.0,
+          "tokens": 250.0,
+          "pairs": 4.0,
+          "ratio": 9.835
+        },
+        {
+          "id": 11,
+          "Δ": 16.048,
+          "reads": 1.0,
+          "tokens": 250.0,
+          "pairs": 9.0,
+          "ratio": 8.23
+        }
+      ],
+      "celf_stats": {
+        "pops": 5,
+        "recomps": 3,
+        "accepted": 2
+      },
+      "budgets": {
+        "reads": 3.0,
+        "tokens": 750.0,
+        "pairs": 17.0,
+        "cost": 5.35,
+        "reranker_pairs": 3.0,
+        "reads_limit": 3.0,
+        "reads_used": 3.0,
+        "lambda_tok": 0.002,
+        "lambda_rerank": 0.05,
+        "pairs_scale": 1.0
+      },
+      "coverage_delta": {
+        "memory": 0.0,
+        "seed": 15.6,
+        "anchors": 0.0,
+        "shards": 32.768,
+        "total": 48.368
+      },
+      "doc_alignment": [
+        {
+          "id": 7,
+          "doc": "docs_ingest_f_ram_roadmap.txt",
+          "tokens": [
+            "confidence"
+          ],
+          "segment": "section:f_ram_roadmap_next_steps_1_calibration_confidence_tuning_short_term"
+        }
+      ]
+    },
+    "coverage": {
+      "facts_added": 77,
+      "distinct_facts": [
+        "2025-09-25",
+        "2025-09-27",
+        "2",
+        "2025",
+        "09"
+      ],
+      "gamma": 0.6,
+      "u_max": 3,
+      "delta_total": 48.368
+    },
+    "hierarchy": [
+      {
+        "cluster": "doc:docs_ingest_f_ram_roadmap.txt",
+        "segment": "section:f_ram_roadmap_next_steps_1_calibration_confidence_tuning_short_term",
+        "chunk": "chunk:1"
+      },
+      {
+        "cluster": "doc:docs_ingest_framv2_2_spec.txt",
+        "segment": "section:implementation_status_sept_2025",
+        "chunk": "chunk:8"
+      },
+      {
+        "cluster": "doc:docs_ingest_framv2_2_cheatsheet.txt",
+        "segment": "section:f_ram_v2_2_cheat_sheet_working_summary",
+        "chunk": "chunk:0"
+      }
+    ]
+  }
+}
