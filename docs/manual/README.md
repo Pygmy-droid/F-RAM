@@ -35,6 +35,9 @@ no memory of writing it. Since 2026-10-31 it has a third reader: you.
    disks for the lost Cosmic Cathedral, the little ANN and the Workbook.
 8. `08_reconstruction_kit.md` — the lost systems as the notes describe them:
    Workbook, Truth Spine, PIL, attention proxy, the finish plan.
+9. `09_the_walk_2025.md` — the line itself, commit by commit, September to
+   December 2025: what each step built, what the diary said, what it is called
+   today. Part two (2026) follows.
 
 ## Evidence tags
 
