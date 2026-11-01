@@ -12,6 +12,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 
+from fram_serving.lived_memory import LivedMemoryStore
 from fram_core.rotational_lift import recursive_lift
 from fram_serving.fractal_memory import FractalGenerator
 
@@ -255,9 +256,15 @@ class ReadOnlyLivedIndex:
         return higher[0]
 
     def search(self, embedding: np.ndarray, *, k: int) -> list[dict[str, Any]]:
+        """Mirror of :meth:`LivedMemoryStore.search` over an immutable read,
+        including the WB-0031 routing rule: geometry terms are gated by each
+        candidate's embedding evidence relative to the strongest candidate
+        whenever any candidate clears ``LivedMemoryStore.EMBEDDING_FLOOR``, and
+        identical query+answer texts collapse to one row with a count."""
         query_embedding = np.asarray(embedding, dtype=float).ravel()
         query_projection = self._query_projection(query_embedding)
-        scored: list[dict[str, Any]] = []
+        floor = float(LivedMemoryStore.EMBEDDING_FLOOR)
+        measured: list[tuple[_IndexedEvent, float, float, float | None]] = []
         for event in self.events:
             event_similarity = _cosine(query_projection, event.higher_projection)
             state_similarity = _cosine(query_projection, event.state_projection)
@@ -265,14 +272,32 @@ class ReadOnlyLivedIndex:
                 embedding_similarity: float | None = _cosine(
                     query_embedding, event.embedding
                 )
-                raw_score = (
-                    0.70 * embedding_similarity
-                    + 0.20 * event_similarity
-                    + 0.10 * state_similarity
-                )
             else:
                 embedding_similarity = None
+            measured.append(
+                (event, event_similarity, state_similarity, embedding_similarity)
+            )
+        evidence = [e for (_, _, _, e) in measured if e is not None]
+        max_evidence = max(evidence) if evidence else None
+        lexical_mode = max_evidence is not None and max_evidence > floor
+        scored: list[dict[str, Any]] = []
+        for event, event_similarity, state_similarity, embedding_similarity in measured:
+            if embedding_similarity is None:
+                gate = 1.0
                 raw_score = 0.75 * event_similarity + 0.25 * state_similarity
+            else:
+                if lexical_mode:
+                    span = float(max_evidence) - floor
+                    gate = (
+                        float(np.clip((embedding_similarity - floor) / span, 0.0, 1.0))
+                        if span > 1e-12
+                        else 1.0
+                    )
+                else:
+                    gate = 1.0
+                raw_score = 0.70 * embedding_similarity + gate * (
+                    0.20 * event_similarity + 0.10 * state_similarity
+                )
             scored.append(
                 {
                     "event_id": event.event_id,
@@ -288,6 +313,10 @@ class ReadOnlyLivedIndex:
                     "embedding_similarity": embedding_similarity,
                     "projection_similarity": event_similarity,
                     "state_similarity": state_similarity,
+                    "geometry_gate": gate,
+                    "lexical_mode": bool(lexical_mode),
+                    "duplicates": 0,
+                    "duplicate_event_ids": [],
                     "_score_raw": raw_score,
                     "_score": 0.5 * (raw_score + 1.0),
                 }
@@ -296,7 +325,21 @@ class ReadOnlyLivedIndex:
             key=lambda item: (float(item["_score"]), str(item["time"])),
             reverse=True,
         )
-        return scored[: max(1, int(k))]
+        folded: list[dict[str, Any]] = []
+        seen: dict[str, dict[str, Any]] = {}
+        for item in scored:
+            key = hashlib.sha256(
+                (item["query"] + chr(10) + item["answer"]).encode("utf-8")
+            ).hexdigest()
+            kept = seen.get(key)
+            if kept is None:
+                seen[key] = item
+                folded.append(item)
+                continue
+            kept["duplicates"] = int(kept["duplicates"]) + 1
+            if len(kept["duplicate_event_ids"]) < 8:
+                kept["duplicate_event_ids"].append(item["event_id"])
+        return folded[: max(1, int(k))]
 
 
 def load_wake_orient_probes(path: Path) -> list[WakeOrientProbe]:
