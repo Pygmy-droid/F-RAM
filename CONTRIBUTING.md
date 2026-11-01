@@ -21,8 +21,13 @@ Each of these is a Workbook card; `python tools/workbook.py list` shows them.
 - **PIL in the serving loop.** `fram_serving/pil.py` and `pil_scheduler.py` are an
   observability-only first slice. Wiring the scheduler into `QueryContext` and letting
   the teach vector train a real retriever is the next slice.
-- **The observer's attention trace.** A trace that records the shape of attention
-  through the lift, not only the geometry of the text. Nobody has built it.
+- **The observer's attention trace.** A first slice landed on 2026-11-01: a live
+  attention state per session, folded turn by turn from the words of each exchange,
+  decayed like the session state, digest-chained, consulted before the probe
+  (`/memory/lived/attention/turn`, `search?attention_session=`). It is a geometric
+  proxy from text, not a reading of weights. The April 2026 original was lost. What
+  remains: a trace of attention *through the lift itself*, the four-cornered shape
+  the builder describes, and an eval that shows conditioning on the state helps.
 - **Quaternion influence.** Trace v2 carries a quaternion per node; the runtime's
   influence on scoring is off. Turn it on, measure, report.
 - **MCP clients.** One per platform, so a model on any provider can hydrate from its own

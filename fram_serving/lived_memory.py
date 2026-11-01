@@ -229,6 +229,31 @@ class LivedMemoryStore:
                     updated_at TEXT NOT NULL,
                     FOREIGN KEY(last_event_id) REFERENCES lived_events(event_id)
                 );
+                CREATE TABLE IF NOT EXISTS lived_attention_state (
+                    session_id TEXT PRIMARY KEY,
+                    turn_count INTEGER NOT NULL,
+                    projection_dim INTEGER NOT NULL,
+                    state_vector BLOB NOT NULL,
+                    state_digest TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS lived_attention_trail (
+                    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    turn_index INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    projection_dim INTEGER NOT NULL,
+                    turn_vector BLOB NOT NULL,
+                    novelty REAL NOT NULL,
+                    state_digest TEXT NOT NULL,
+                    previous_digest TEXT,
+                    text_sha256 TEXT NOT NULL,
+                    excerpt TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL,
+                    UNIQUE(session_id, turn_index)
+                );
+                CREATE INDEX IF NOT EXISTS lived_attention_trail_idx
+                    ON lived_attention_trail(session_id, turn_index DESC);
                 """
             )
             existing_meta = {
@@ -620,6 +645,8 @@ class LivedMemoryStore:
         collapse_duplicates: bool = True,
         exclude_session_prefixes: Sequence[str] | None = None,
         embedding_floor: float | None = None,
+        attention_state: Sequence[float] | None = None,
+        attention_alpha: float = 0.35,
     ) -> List[Dict[str, Any]]:
         """Rank lived events against a query embedding.
 
@@ -640,6 +667,27 @@ class LivedMemoryStore:
         """
         query_embedding = np.asarray(embedding, dtype=float).ravel()
         query_projection = self._query_projection(query_embedding)
+        # WB-0027: the live attention state, carried turn to turn, is consulted
+        # before the fresh probe: the probe's projection is blended toward where
+        # attention already is, and each candidate also reports how close it
+        # sits to that state. Nothing changes when no state is given.
+        attention_vec: np.ndarray | None = None
+        if attention_state is not None:
+            candidate = np.asarray(attention_state, dtype=float).ravel()
+            if (
+                candidate.size == query_projection.size
+                and np.isfinite(candidate).all()
+                and np.linalg.norm(candidate) > 1e-12
+            ):
+                attention_vec = candidate
+                alpha = float(np.clip(attention_alpha, 0.0, 1.0))
+                qn = float(np.linalg.norm(query_projection))
+                q_unit = query_projection / qn if qn > 1e-12 else query_projection
+                a_unit = candidate / float(np.linalg.norm(candidate))
+                blended = (1.0 - alpha) * q_unit + alpha * a_unit
+                bn = float(np.linalg.norm(blended))
+                if bn > 1e-12:
+                    query_projection = blended * (qn / bn if qn > 1e-12 else 1.0)
         cap = max(1, min(int(scan_limit or self.scan_limit), self.scan_limit))
         floor = float(self.EMBEDDING_FLOOR if embedding_floor is None else embedding_floor)
         prefixes = tuple(str(p) for p in (exclude_session_prefixes or ()) if p)
@@ -737,6 +785,12 @@ class LivedMemoryStore:
                     "state_similarity": state_similarity,
                     "geometry_gate": gate,
                     "lexical_mode": bool(lexical_mode),
+                    "attention_conditioned": attention_vec is not None,
+                    "attention_similarity": (
+                        _cosine(attention_vec, _vector_from_blob(row["higher_projection"], dim))
+                        if attention_vec is not None
+                        else None
+                    ),
                     "duplicates": 0,
                     "duplicate_event_ids": [],
                     "_score_raw": combined,
@@ -771,6 +825,246 @@ class LivedMemoryStore:
                     kept["duplicate_event_ids"].append(item["event_id"])
             scored = folded
         return scored[: max(1, int(k))]
+
+    # ---- WB-0027: the live attention state, carried turn to turn -------------
+
+    def update_attention(
+        self,
+        *,
+        session_id: str,
+        embedding: Sequence[float],
+        text: str,
+        excerpt: str = "",
+        decay: float | None = None,
+        metadata: Dict[str, Any] | None = None,
+        created_at: str | None = None,
+    ) -> Dict[str, Any]:
+        """Fold one turn into the session's live attention state.
+
+        The turn's text is embedded by the caller with the same encoder as every
+        memory; here it is lifted by the same route (6-D base, recursive lift to
+        the target dimension) and decayed into the running state exactly as
+        events decay into the session state. ``novelty`` is how far attention
+        moved: 1 - cosine(previous state, this turn). Every turn is appended to
+        an append-only trail whose digests chain, so the motion of attention is
+        a record, not a recomputation. This is a geometric proxy built from the
+        words of the turn; it is not a reading of model weights.
+        """
+        vector = np.asarray(embedding, dtype=float).ravel()
+        if vector.size == 0 or not np.isfinite(vector).all():
+            raise ValueError("embedding must be finite and non-empty")
+        normalized_session = self._session_id(session_id)
+        turn_vec = self._query_projection(vector)
+        factor = self.state_decay if decay is None else float(decay)
+        if not 0.0 <= factor < 1.0:
+            raise ValueError("decay must be in [0, 1)")
+        stamp = created_at or datetime.now(timezone.utc).isoformat()
+        text_sha = _sha256_bytes(str(text).encode("utf-8"))
+        metadata_json = _canonical_json(dict(metadata or {}))
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                previous = connection.execute(
+                    "SELECT turn_count, projection_dim, state_vector, state_digest "
+                    "FROM lived_attention_state WHERE session_id=?",
+                    (normalized_session,),
+                ).fetchone()
+                if previous is None:
+                    turn_index = 1
+                    previous_digest = None
+                    state = turn_vec
+                    novelty = 1.0
+                else:
+                    if int(previous["projection_dim"]) != self.target_dim:
+                        raise LivedMemoryCorruptError(
+                            "attention state projection dimension changed without migration"
+                        )
+                    turn_index = int(previous["turn_count"]) + 1
+                    previous_digest = str(previous["state_digest"])
+                    previous_state = _vector_from_blob(
+                        previous["state_vector"], self.target_dim
+                    )
+                    novelty = float(
+                        np.clip(1.0 - _cosine(previous_state, turn_vec), 0.0, 2.0)
+                    )
+                    state = factor * previous_state + (1.0 - factor) * turn_vec
+                turn_blob = _vector_blob(turn_vec)
+                state_blob = _vector_blob(state)
+                digest = _sha256_bytes(
+                    ":".join(
+                        [
+                            str(previous_digest),
+                            normalized_session,
+                            str(turn_index),
+                            stamp,
+                            text_sha,
+                            _sha256_bytes(turn_blob),
+                            _sha256_bytes(state_blob),
+                            format(novelty, ".9g"),
+                        ]
+                    ).encode("utf-8")
+                )
+                connection.execute(
+                    """
+                    INSERT INTO lived_attention_trail(
+                        session_id, turn_index, created_at, projection_dim, turn_vector,
+                        novelty, state_digest, previous_digest, text_sha256, excerpt,
+                        metadata_json
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        normalized_session,
+                        turn_index,
+                        stamp,
+                        self.target_dim,
+                        turn_blob,
+                        novelty,
+                        digest,
+                        previous_digest,
+                        text_sha,
+                        str(excerpt)[:400],
+                        metadata_json,
+                    ),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO lived_attention_state(
+                        session_id, turn_count, projection_dim, state_vector,
+                        state_digest, updated_at
+                    ) VALUES(?,?,?,?,?,?)
+                    ON CONFLICT(session_id) DO UPDATE SET
+                        turn_count=excluded.turn_count,
+                        projection_dim=excluded.projection_dim,
+                        state_vector=excluded.state_vector,
+                        state_digest=excluded.state_digest,
+                        updated_at=excluded.updated_at
+                    """,
+                    (
+                        normalized_session,
+                        turn_index,
+                        self.target_dim,
+                        state_blob,
+                        digest,
+                        stamp,
+                    ),
+                )
+                connection.execute("COMMIT")
+            except Exception:
+                connection.execute("ROLLBACK")
+                raise
+        return {
+            "session_id": normalized_session,
+            "turn_index": turn_index,
+            "novelty": novelty,
+            "state_vector": [float(x) for x in state],
+            "state_digest": digest,
+            "previous_digest": previous_digest,
+            "updated_at": stamp,
+            "projection_dim": self.target_dim,
+        }
+
+    def attention_state(self, session_id: str) -> Dict[str, Any] | None:
+        normalized = self._session_id(session_id)
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT session_id, turn_count, projection_dim, state_vector, "
+                "state_digest, updated_at FROM lived_attention_state WHERE session_id=?",
+                (normalized,),
+            ).fetchone()
+        if row is None:
+            return None
+        dim = int(row["projection_dim"])
+        return {
+            "session_id": str(row["session_id"]),
+            "turn_count": int(row["turn_count"]),
+            "projection_dim": dim,
+            "state_vector": [
+                float(x) for x in _vector_from_blob(row["state_vector"], dim)
+            ],
+            "state_digest": str(row["state_digest"]),
+            "updated_at": str(row["updated_at"]),
+        }
+
+    def attention_trail(
+        self, session_id: str, *, limit: int = 12
+    ) -> List[Dict[str, Any]]:
+        normalized = self._session_id(session_id)
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT turn_index, created_at, novelty, state_digest, previous_digest, "
+                "text_sha256, excerpt, metadata_json FROM lived_attention_trail "
+                "WHERE session_id=? ORDER BY turn_index DESC LIMIT ?",
+                (normalized, max(1, int(limit))),
+            ).fetchall()
+        out: List[Dict[str, Any]] = []
+        for row in rows:
+            out.append(
+                {
+                    "turn_index": int(row["turn_index"]),
+                    "created_at": str(row["created_at"]),
+                    "novelty": float(row["novelty"]),
+                    "state_digest": str(row["state_digest"]),
+                    "previous_digest": row["previous_digest"],
+                    "text_sha256": str(row["text_sha256"]),
+                    "excerpt": str(row["excerpt"]),
+                    "metadata": json.loads(row["metadata_json"]),
+                }
+            )
+        return out
+
+    def verify_attention(self) -> Dict[str, Any]:
+        """Check that every attention trail chains and that each state row
+        matches its latest trail digest."""
+        errors: List[Dict[str, Any]] = []
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT session_id, turn_index, state_digest, previous_digest "
+                "FROM lived_attention_trail ORDER BY session_id, turn_index"
+            ).fetchall()
+            states = {
+                str(r["session_id"]): r
+                for r in connection.execute(
+                    "SELECT session_id, turn_count, state_digest FROM lived_attention_state"
+                ).fetchall()
+            }
+        last: Dict[str, Any] = {}
+        for row in rows:
+            sid = str(row["session_id"])
+            prev = last.get(sid)
+            expected_prev = None if prev is None else str(prev["state_digest"])
+            if row["previous_digest"] != expected_prev:
+                errors.append(
+                    {
+                        "session_id": sid,
+                        "turn_index": int(row["turn_index"]),
+                        "error": "trail chain broken",
+                    }
+                )
+            if prev is not None and int(row["turn_index"]) != int(prev["turn_index"]) + 1:
+                errors.append(
+                    {
+                        "session_id": sid,
+                        "turn_index": int(row["turn_index"]),
+                        "error": "turn index gap",
+                    }
+                )
+            last[sid] = row
+        for sid, row in last.items():
+            state = states.get(sid)
+            if (
+                state is None
+                or str(state["state_digest"]) != str(row["state_digest"])
+                or int(state["turn_count"]) != int(row["turn_index"])
+            ):
+                errors.append(
+                    {"session_id": sid, "error": "state row does not match trail head"}
+                )
+        return {
+            "valid": not errors,
+            "sessions": len(last),
+            "turns": len(rows),
+            "errors": errors,
+        }
 
     def session_state(self, session_id: str | None = None) -> Dict[str, Any] | None:
         normalized = self._session_id(session_id)

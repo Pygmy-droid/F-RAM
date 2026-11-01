@@ -2348,10 +2348,15 @@ def lived_memory_search(
     session_id: str | None = None,
     include_seeds: bool = True,
     collapse: bool = True,
+    attention_session: str | None = None,
+    attention_alpha: float = 0.35,
 ):
     """Search the lived store. ``include_seeds=false`` leaves ``seed:*`` sessions
     out of this read (nothing is deleted); ``collapse=false`` lists identical
-    events separately instead of one row with a ``duplicates`` count (WB-0031)."""
+    events separately instead of one row with a ``duplicates`` count (WB-0031).
+    ``attention_session`` names a live attention state (WB-0027) that is
+    consulted before the probe: the probe is blended toward it by
+    ``attention_alpha`` and every item reports ``attention_similarity``."""
     store = _get_lived_store()
     if store is None:
         raise HTTPException(status_code=404, detail="lived memory disabled")
@@ -2360,12 +2365,21 @@ def lived_memory_search(
     embedding, backend = _encode_cognitive_text(query.strip())
     if embedding is None:
         raise HTTPException(status_code=503, detail="memory embedding unavailable")
+    attention_vec = None
+    attention_meta = None
+    if attention_session:
+        state = store.attention_state(attention_session)
+        if state is not None:
+            attention_vec = state["state_vector"]
+            attention_meta = {k: state[k] for k in ("session_id", "turn_count", "state_digest", "updated_at")}
     results = store.search(
         embedding,
         k=max(1, min(int(k), 50)),
         session_id=session_id,
         collapse_duplicates=bool(collapse),
         exclude_session_prefixes=None if include_seeds else ("seed:",),
+        attention_state=attention_vec,
+        attention_alpha=float(attention_alpha),
     )
     return {
         "query": query,
@@ -2373,8 +2387,53 @@ def lived_memory_search(
         "count": len(results),
         "include_seeds": bool(include_seeds),
         "collapsed": bool(collapse),
+        "attention": attention_meta,
         "items": results,
     }
+
+
+class LivedAttentionTurnRequest(BaseModel):
+    session_id: str = "wren-attention"
+    text: str
+    excerpt: str = ""
+    metadata: dict | None = None
+
+
+@app.post("/memory/lived/attention/turn")
+def lived_attention_turn(req: LivedAttentionTurnRequest):
+    """Fold one turn into a live attention state (WB-0027). The text is embedded
+    with the same encoder as every memory, lifted by the same route, decayed into
+    the running state, and appended to a digest-chained trail."""
+    store = _get_lived_store()
+    if store is None:
+        raise HTTPException(status_code=404, detail="lived memory disabled")
+    if not req.text or not req.text.strip():
+        raise HTTPException(status_code=400, detail="'text' must be non-empty")
+    embedding, backend = _encode_cognitive_text(req.text.strip())
+    if embedding is None:
+        raise HTTPException(status_code=503, detail="memory embedding unavailable")
+    result = store.update_attention(
+        session_id=req.session_id,
+        embedding=embedding,
+        text=req.text,
+        excerpt=req.excerpt or req.text[:160],
+        metadata={**(req.metadata or {}), "embedding_backend": backend},
+    )
+    result["embedding_backend"] = backend
+    return result
+
+
+@app.get("/memory/lived/attention/{session_id}")
+def lived_attention_state(session_id: str, limit: int = 12):
+    store = _get_lived_store()
+    if store is None:
+        raise HTTPException(status_code=404, detail="lived memory disabled")
+    state = store.attention_state(session_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="attention session not found")
+    state["trail"] = store.attention_trail(session_id, limit=max(1, min(int(limit), 100)))
+    state["verify"] = store.verify_attention()
+    return state
 
 
 @app.get("/memory/lived/session/{session_id}")
