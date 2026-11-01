@@ -12,10 +12,12 @@ Each of these is a Workbook card; `python tools/workbook.py list` shows them.
   share no words cannot find each other. A real encoder behind the existing
   `cognitive_memory_embedding_backend` switch, with an eval that shows recall improving
   on the public wake-and-orient probes, is the single most valuable contribution.
-- **Cluster recall.** Retrieval scores points. A cluster of identical seed states can
-  outrank the one event that contains the query's words. Make recall pull the coil, not
-  the node: collapse identical state digests, weight projection similarity by embedding
-  similarity, or something better.
+- **Cluster recall.** Retrieval scores points. A cluster of identical seed states used
+  to outrank the one event that contains the query's words. The first slice landed on
+  2026-11-01: geometry is now gated by lexical evidence and identical events collapse
+  to one row with a count (`lived_memory.search`, WB-0031). What remains: a query that
+  shares no words with its memory still finds nothing, which is the encoder's job; and
+  the gate's floor is a measured constant, not a learned one.
 - **PIL in the serving loop.** `fram_serving/pil.py` and `pil_scheduler.py` are an
   observability-only first slice. Wiring the scheduler into `QueryContext` and letting
   the teach vector train a real retriever is the next slice.

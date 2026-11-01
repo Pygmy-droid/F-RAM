@@ -2346,7 +2346,12 @@ def lived_memory_search(
     query: str,
     k: int = 4,
     session_id: str | None = None,
+    include_seeds: bool = True,
+    collapse: bool = True,
 ):
+    """Search the lived store. ``include_seeds=false`` leaves ``seed:*`` sessions
+    out of this read (nothing is deleted); ``collapse=false`` lists identical
+    events separately instead of one row with a ``duplicates`` count (WB-0031)."""
     store = _get_lived_store()
     if store is None:
         raise HTTPException(status_code=404, detail="lived memory disabled")
@@ -2359,11 +2364,15 @@ def lived_memory_search(
         embedding,
         k=max(1, min(int(k), 50)),
         session_id=session_id,
+        collapse_duplicates=bool(collapse),
+        exclude_session_prefixes=None if include_seeds else ("seed:",),
     )
     return {
         "query": query,
         "embedding_backend": backend,
         "count": len(results),
+        "include_seeds": bool(include_seeds),
+        "collapsed": bool(collapse),
         "items": results,
     }
 

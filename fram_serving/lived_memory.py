@@ -605,6 +605,11 @@ class LivedMemoryStore:
             ).fetchone()
         return row is not None
 
+    # Below this cosine the hashing embedding is treated as carrying no lexical
+    # evidence. Measured 2026-11-01 on the 899-event store: genuine word matches
+    # on long events score 0.05 to 0.25; unrelated events sit at 0.00 to 0.02.
+    EMBEDDING_FLOOR = 0.02
+
     def search(
         self,
         embedding: Sequence[float],
@@ -612,10 +617,32 @@ class LivedMemoryStore:
         k: int = 4,
         session_id: str | None = None,
         scan_limit: int | None = None,
+        collapse_duplicates: bool = True,
+        exclude_session_prefixes: Sequence[str] | None = None,
+        embedding_floor: float | None = None,
     ) -> List[Dict[str, Any]]:
+        """Rank lived events against a query embedding.
+
+        Routing rule (WB-0031, Rick 2026-11-01: "keep the original path and the
+        shortcut, route to both from the endpoints"): the embedding is the
+        original path, the 12-D projection/state is the shortcut. When any
+        candidate carries lexical evidence (embedding cosine above
+        ``embedding_floor``), the geometry terms are weighted by each
+        candidate's evidence relative to the strongest, so the shortcut can
+        only order among word matches, never outvote them. When no candidate
+        carries evidence, geometry decides, exactly as before.
+
+        ``collapse_duplicates`` folds events with identical query and answer
+        text into one row carrying ``duplicates`` and ``duplicate_event_ids``.
+        Nothing is removed from the store; the coil is reported as one node.
+        ``exclude_session_prefixes`` drops sessions by prefix (``"seed:"``)
+        from this read only.
+        """
         query_embedding = np.asarray(embedding, dtype=float).ravel()
         query_projection = self._query_projection(query_embedding)
         cap = max(1, min(int(scan_limit or self.scan_limit), self.scan_limit))
+        floor = float(self.EMBEDDING_FLOOR if embedding_floor is None else embedding_floor)
+        prefixes = tuple(str(p) for p in (exclude_session_prefixes or ()) if p)
         params: List[Any] = []
         where = ""
         if session_id is not None:
@@ -639,10 +666,12 @@ class LivedMemoryStore:
                 tuple(params),
             ).fetchall()
 
-        scored: List[Dict[str, Any]] = []
+        measured: List[tuple[Any, float, float, float | None]] = []
         for row in rows:
             dim = int(row["projection_dim"])
             if dim != self.target_dim:
+                continue
+            if prefixes and str(row["session_id"]).startswith(prefixes):
                 continue
             event_projection = _vector_from_blob(row["higher_projection"], dim)
             state_projection = _vector_from_blob(row["state_projection"], dim)
@@ -652,15 +681,36 @@ class LivedMemoryStore:
             event_similarity = _cosine(query_projection, event_projection)
             state_similarity = _cosine(query_projection, state_projection)
             if stored_embedding.size == query_embedding.size:
-                embedding_similarity = _cosine(query_embedding, stored_embedding)
-                combined = (
-                    0.70 * embedding_similarity
-                    + 0.20 * event_similarity
-                    + 0.10 * state_similarity
+                embedding_similarity: float | None = _cosine(
+                    query_embedding, stored_embedding
                 )
             else:
                 embedding_similarity = None
+            measured.append(
+                (row, event_similarity, state_similarity, embedding_similarity)
+            )
+
+        evidence = [e for (_, _, _, e) in measured if e is not None]
+        max_evidence = max(evidence) if evidence else None
+        lexical_mode = max_evidence is not None and max_evidence > floor
+
+        scored: List[Dict[str, Any]] = []
+        for row, event_similarity, state_similarity, embedding_similarity in measured:
+            dim = int(row["projection_dim"])
+            if embedding_similarity is None:
+                gate = 1.0
                 combined = 0.75 * event_similarity + 0.25 * state_similarity
+            else:
+                if lexical_mode:
+                    span = float(max_evidence) - floor
+                    gate = float(
+                        np.clip((embedding_similarity - floor) / span, 0.0, 1.0)
+                    ) if span > 1e-12 else 1.0
+                else:
+                    gate = 1.0
+                combined = 0.70 * embedding_similarity + gate * (
+                    0.20 * event_similarity + 0.10 * state_similarity
+                )
             score = 0.5 * (combined + 1.0)
             scored.append(
                 {
@@ -685,6 +735,10 @@ class LivedMemoryStore:
                     "embedding_similarity": embedding_similarity,
                     "projection_similarity": event_similarity,
                     "state_similarity": state_similarity,
+                    "geometry_gate": gate,
+                    "lexical_mode": bool(lexical_mode),
+                    "duplicates": 0,
+                    "duplicate_event_ids": [],
                     "_score_raw": combined,
                     "_score": score,
                     "event_digest": str(row["event_digest"]),
@@ -700,6 +754,22 @@ class LivedMemoryStore:
             key=lambda item: (float(item["_score"]), str(item["time"])),
             reverse=True,
         )
+        if collapse_duplicates:
+            folded: List[Dict[str, Any]] = []
+            seen: Dict[str, Dict[str, Any]] = {}
+            for item in scored:
+                key = hashlib.sha256(
+                    f"{item['query']}\n{item['answer']}".encode("utf-8")
+                ).hexdigest()
+                kept = seen.get(key)
+                if kept is None:
+                    seen[key] = item
+                    folded.append(item)
+                    continue
+                kept["duplicates"] = int(kept["duplicates"]) + 1
+                if len(kept["duplicate_event_ids"]) < 8:
+                    kept["duplicate_event_ids"].append(item["event_id"])
+            scored = folded
         return scored[: max(1, int(k))]
 
     def session_state(self, session_id: str | None = None) -> Dict[str, Any] | None:

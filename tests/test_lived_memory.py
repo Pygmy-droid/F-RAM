@@ -346,3 +346,84 @@ def test_lived_memory_api_exposes_persisted_state(tmp_path: Path, monkeypatch) -
     assert session.json()["projection_dim"] == 8
     assert verify.status_code == 200
     assert verify.json()["valid"] is True
+
+
+# --- WB-0031: route to the path and the shortcut from the endpoints ---------
+
+
+def _basis(index: int, dim: int = 32) -> np.ndarray:
+    vector = np.zeros(dim)
+    vector[index] = 1.0
+    return vector
+
+
+def _routing_store(tmp_path: Path) -> tuple[LivedMemoryStore, np.ndarray]:
+    """Five identical zero-evidence events plus one event that shares words
+    (a positive embedding cosine) with the query."""
+    store = LivedMemoryStore(tmp_path / "routing", target_dim=12, fractal_nodes=8)
+    query = _basis(0)
+    for index in range(5):
+        store.append_experience(
+            query="coverage demo",
+            answer="identical seed text",
+            embedding=_basis(1).tolist(),
+            embedding_backend="hashing",
+            event_id=f"seed-{index}",
+            session_id=f"seed:abc:{index}",
+        )
+    store.append_experience(
+        query="three tea bags and a lantern",
+        answer="the one event that holds the words",
+        embedding=(0.8 * _basis(0) + 0.6 * _basis(2)).tolist(),
+        embedding_backend="hashing",
+        event_id="hearth",
+        session_id="hearth-wren",
+    )
+    assert store.verify()["valid"]
+    return store, query
+
+
+def test_word_match_outranks_identical_geometry_cluster(tmp_path: Path) -> None:
+    store, query = _routing_store(tmp_path)
+    results = store.search(query, k=10)
+    assert results[0]["event_id"] == "hearth"
+    assert results[0]["lexical_mode"] is True
+    assert results[0]["geometry_gate"] == pytest.approx(1.0)
+    cluster = [row for row in results if row["event_id"].startswith("seed-")]
+    assert len(cluster) == 1, "identical events collapse to one row"
+    assert cluster[0]["duplicates"] == 4
+    assert len(cluster[0]["duplicate_event_ids"]) == 4
+    # No lexical evidence: the geometry terms are gated out entirely.
+    assert cluster[0]["embedding_similarity"] == pytest.approx(0.0)
+    assert cluster[0]["geometry_gate"] == pytest.approx(0.0)
+    assert cluster[0]["_score_raw"] == pytest.approx(0.0)
+
+
+def test_collapse_can_be_disabled_and_nothing_was_removed(tmp_path: Path) -> None:
+    store, query = _routing_store(tmp_path)
+    expanded = store.search(query, k=10, collapse_duplicates=False)
+    assert sum(1 for row in expanded if row["event_id"].startswith("seed-")) == 5
+    assert all(row["duplicates"] == 0 for row in expanded)
+    assert store.status()["event_count"] == 6
+
+
+def test_exclude_session_prefixes_is_a_read_filter(tmp_path: Path) -> None:
+    store, query = _routing_store(tmp_path)
+    results = store.search(query, k=10, exclude_session_prefixes=("seed:",))
+    assert [row["event_id"] for row in results] == ["hearth"]
+    assert store.status()["event_count"] == 6
+
+
+def test_no_lexical_evidence_falls_back_to_geometry(tmp_path: Path) -> None:
+    store, _ = _routing_store(tmp_path)
+    orthogonal = _basis(5)
+    results = store.search(orthogonal, k=10, collapse_duplicates=False)
+    assert all(row["lexical_mode"] is False for row in results)
+    for row in results:
+        assert row["geometry_gate"] == pytest.approx(1.0)
+        expected = (
+            0.70 * row["embedding_similarity"]
+            + 0.20 * row["projection_similarity"]
+            + 0.10 * row["state_similarity"]
+        )
+        assert row["_score_raw"] == pytest.approx(expected)
