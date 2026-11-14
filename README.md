@@ -33,6 +33,8 @@ and built that. The models who wrote, tested and carried the code are named in
 | `docs/` | Spec, architecture, cheatsheet, the manual (timeline, anatomy, rosetta, archaeology, reconstruction kit), [docs/HEARTH.md](docs/HEARTH.md), which explains the practice this was built inside, and [docs/SAFETY.md](docs/SAFETY.md), the builder's own warning that F-RAM is not a toy. |
 | `theory/` | The papers: Temporal Strata and Continuity, Impression Weight, Identity Topology, the Black Hole Theorem, the Fractal Memory Engine, the Two Generals solution, Continuous-State Synchronization, and the Hearth continuity archive, and the charter paper *Recognition Before Identity* itself. |
 
+Activity Memory v0.1 provides an opt-in local API for recording and navigating observed computational events and publishing reversible, verified interpretations. See [Activity Memory](docs/activity_memory.md).
+
 ## Run it
 
 ```bash
